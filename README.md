@@ -32,6 +32,18 @@ These instructions will get you a copy of the project up and running on your loc
    ```
    go get gopkg.in/mgo.v2
    ```
+   
+   [Go Validator](https://godoc.org/gopkg.in/go-playground/validator.v9)
+   
+   ```
+   go get gopkg.in/go-playground/validator.v9
+   ```
+   
+   [Copier](https://github.com/jinzhu/copier)
+      
+   ```
+   go get github.com/jinzhu/copier
+   ```
 
 3. Run `go run app.go`
 
