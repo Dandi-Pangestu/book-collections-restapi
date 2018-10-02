@@ -1,14 +1,17 @@
 package main
 
 import (
-	"log"
-	"net/http"
+	. "book-collections-restapi/config"
+	. "book-collections-restapi/dao"
+	"book-collections-restapi/dto/request"
+	"book-collections-restapi/helpers"
+	. "book-collections-restapi/models"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"github.com/jinzhu/copier"
 	"gopkg.in/mgo.v2/bson"
-	. "book-collections-restapi/dao"
-	. "book-collections-restapi/models"
-	. "book-collections-restapi/config"
+	"log"
+	"net/http"
 )
 
 var dao BookDao
@@ -16,11 +19,11 @@ var dao BookDao
 func AllBooks(w http.ResponseWriter, r *http.Request) {
 	books, err := dao.FindAll()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJson(w, http.StatusOK, books)
+	helpers.RespondWithJson(w, http.StatusOK, books)
 }
 
 func FindBook(w http.ResponseWriter, r *http.Request) {
@@ -28,51 +31,71 @@ func FindBook(w http.ResponseWriter, r *http.Request) {
 	book, err := dao.FindOne(params["id"])
 
 	if book.IsEmpty() {
-		respondWithError(w, http.StatusNotFound, "not found")
+		helpers.RespondWithError(w, http.StatusNotFound, "not found")
 		return
 	}
 
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJson(w, http.StatusOK, book)
+	helpers.RespondWithJson(w, http.StatusOK, book)
 }
 
 func CreateBook(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	var book Book
-	if err := json.NewDecoder(r.Body).Decode(&book); err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+	bookRequest := request.BookRequest{}
+
+	if err := json.NewDecoder(r.Body).Decode(&bookRequest); err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	err := bookRequest.Validate(w, r)
+	if err {
+		return
+	}
+
+	var book Book
+
+	copier.Copy(&book, &bookRequest)
 
 	book.ID = bson.NewObjectId()
 	if err := dao.Insert(book); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJson(w, http.StatusCreated, book)
+	helpers.RespondWithJson(w, http.StatusCreated, book)
 }
 
 func UpdateBook(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	var book Book
-	if err := json.NewDecoder(r.Body).Decode(&book); err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+	bookRequest := request.BookRequest{}
+
+	if err := json.NewDecoder(r.Body).Decode(&bookRequest); err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	err := bookRequest.Validate(w, r)
+	if err {
+		return
+	}
+
+	var book Book
+
+	copier.Copy(&book, &bookRequest)
 
 	if err := dao.Update(book); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJson(w, http.StatusOK, book)
+	helpers.RespondWithJson(w, http.StatusOK, book)
 }
 
 func DeleteBook(w http.ResponseWriter, r *http.Request) {
@@ -80,32 +103,21 @@ func DeleteBook(w http.ResponseWriter, r *http.Request) {
 	book, err := dao.FindOne(params["id"])
 
 	if book.IsEmpty() {
-		respondWithError(w, http.StatusNotFound, "not found")
+		helpers.RespondWithError(w, http.StatusNotFound, "not found")
 		return
 	}
 
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if err := dao.Delete(book); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJson(w, http.StatusOK, map[string]string{"success": "the book has been deleted"})
-}
-
-func respondWithError(w http.ResponseWriter, code int, message string) {
-	respondWithJson(w, code, map[string]string{"error": message})
-}
-
-func respondWithJson(w http.ResponseWriter, code int, payload interface{}) {
-	response, _ := json.Marshal(payload)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	w.Write(response)
+	helpers.RespondWithJson(w, http.StatusOK, map[string]string{"success": "the book has been deleted"})
 }
 
 func init() {
